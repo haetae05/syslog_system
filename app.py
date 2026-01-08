@@ -65,15 +65,16 @@ def api_analyze():
     else:
         print("stats.json not found!")
     
-    response_data = {
-        'labels': chart_labels,
-        'monthly_totals': monthly_totals,
-        'monthly_ratios': monthly_ratios,
-        'top_5': top_5,
-        'top_5_counts': top_5_counts
-    }
-    
-    return jsonify(response_data)
+    return jsonify({
+        'status': 'success',
+        'data': {
+            'chart_labels': chart_labels,
+            'monthly_totals': monthly_totals,
+            'monthly_ratios': monthly_ratios,
+            'top_5': top_5,
+            'top_5_counts': top_5_counts,
+        }
+    })
 
 @app.route('/api/train', methods=['POST'])
 def api_train():

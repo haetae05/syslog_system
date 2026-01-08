@@ -6,8 +6,8 @@ from datetime import datetime
 
 import json
 
-SYSLOG_DIR = "c:/syslog/syslog1년치"
-STATS_FILE = "c:/syslog/stats.json"
+SYSLOG_DIR = os.environ.get("SYSLOG_DIR", "syslog1년치")
+STATS_FILE = "stats.json"
 
 class SyslogAnalyzer:
     def __init__(self, root_dir=SYSLOG_DIR):
