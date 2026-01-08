@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-11">
+        <div class="card p-4">
+            <h2 class="mb-4">🔮 실시간 장애 예측 (Real-time Timeline)</h2>
+            <p class="text-secondary mb-4">
+                현재 학습된 <b>5~11월 데이터 패턴</b>을 기반으로 분석한 결과입니다.
+                시간은 정기 주기에 따라 실시간으로 계산되며, 각 이벤트는 고정된 주기에 따라 일관되게 발생을 예측합니다.
+            </p>
+
+            <div class="d-flex gap-2">
+                <button id="forecastBtn" class="btn btn-success btn-lg mb-4">
+                    <span class="spinner-border spinner-border-sm d-none" id="btnSpinner"></span>
+                    Run Analysis
+                </button>
+                <div id="liveStatus" class="mt-2 text-info d-none">● Live Counting...</div>
+            </div>
+
+            <div id="resultArea" class="d-none">
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover table-bordered table-sm">
+                        <thead>
+                            <tr class="table-active">
+                                <th>예정 시간 (Time)</th>
+                                <th>장애 유형 (Error Type)</th>
+                                <th>순번 (Seq)</th>
+                                <th>24h 확률 (Prob.)</th>
+                                <th>위험도 (Risk)</th>
+                                <th style="width: 151px;">남은 시간 (Countdown)</th>
+                                <th>평균 주기 (MTBF)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="forecastTableBody">
+                            <!-- Rows will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="alert alert-warning mt-3">
+                    <small>* 실시간 계산: "남은 시간"은 현재 시간을 기준으로 매초 업데이트됩니다. 시간이 지나면 목록에서 사라집니다.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let countdownInterval = null;
+    let forecastData = [];
+
+    document.getElementById('forecastBtn').addEventListener('click', function () {
+        const btn = this;
+        const spinner = document.getElementById('btnSpinner');
+        const resultArea = document.getElementById('resultArea');
+        const liveStatus = document.getElementById('liveStatus');
+
+        btn.disabled = true;
+        spinner.classList.remove('d-none');
+
+        fetch('/api/forecast')
+            .then(res => res.json())
+            .then(data => {
+                btn.disabled = false;
+                spinner.classList.add('d-none');
+
+                if (data.status === 'success') {
+                    forecastData = data.data;
+                    resultArea.classList.remove('d-none');
+                    liveStatus.classList.remove('d-none');
+                    renderTable();
+                    startCountdown();
+                }
+            })
+            .catch(err => {
+                btn.disabled = false;
+                spinner.classList.add('d-none');
+                alert("Error: " + err);
+            });
+    });
+
+    function renderTable() {
+        const tableBody = document.getElementById('forecastTableBody');
+        tableBody.innerHTML = "";
+
+        forecastData.forEach((item, index) => {
+            const tr = document.createElement('tr');
+            tr.id = `row-${index}`;
+            tr.innerHTML = `
+                <td><b>${item.next_est}</b></td>
+                <td><span class="badge bg-secondary">${item.type}</span></td>
+                <td><small class="text-secondary">#${item.occurrence_index}</small></td>
+                <td class="text-info">${item.prob_24h}</td>
+                <td class="${item.risk_color}">${item.risk}</td>
+                <td id="countdown-${index}" class="bg-dark text-center fw-bold text-warning font-monospace">--:--:--</td>
+                <td><small class="text-secondary">${item.mtbf}</small></td>
+            `;
+            tableBody.appendChild(tr);
+        });
+    }
+
+    function startCountdown() {
+        if (countdownInterval) clearInterval(countdownInterval);
+
+        countdownInterval = setInterval(() => {
+            const now = new Date().getTime();
+            let anyRemoved = false;
+
+            forecastData.forEach((item, index) => {
+                const target = new Date(item.timestamp_iso).getTime();
+                const distance = target - now;
+                const element = document.getElementById(`countdown-${index}`);
+
+                if (distance < 0) {
+                    if (element) {
+                        element.innerText = "EXPIRED";
+                        element.classList.remove('text-warning');
+                        element.classList.add('text-danger');
+                    }
+                    // Optionally remove or mark as occurred
+                } else {
+                    const h = Math.floor(distance / (1000 * 60 * 60));
+                    const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                    const s = Math.floor((distance % (1000 * 60)) / 1000);
+
+                    if (element) {
+                        element.innerText =
+                            String(h).padStart(2, '0') + "h " +
+                            String(m).padStart(2, '0') + "m " +
+                            String(s).padStart(2, '0') + "s";
+                    }
+                }
+            });
+        }, 1000);
+    }
+</script>
+{% endblock %}

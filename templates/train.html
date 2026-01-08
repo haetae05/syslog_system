@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card p-4">
+            <h2 class="mb-4">🎓 AI 모델 학습 (LSTM)</h2>
+            <div class="alert alert-info">
+                <strong>설정:</strong> Window Size = 50, Embedding = 64, Epochs = 2 <br>
+                대상: 5~11월 데이터 (948건 장애 로그 학습)
+            </div>
+
+            <button id="trainBtn" class="btn btn-primary btn-lg w-100">Start Training</button>
+
+            <div id="statusArea" class="mt-4 p-3 bg-dark rounded d-none"
+                style="min-height: 200px; color: #0f0; font-family: monospace;">
+                <h5 id="statusText" class="text-white border-bottom pb-2">🚀 Training Progress</h5>
+
+                <div class="progress mt-3 mb-3" style="height: 25px;">
+                    <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+                        role="progressbar" style="width: 0%">0%</div>
+                </div>
+
+                <div id="consoleOutput" style="height: 150px; overflow-y: auto; border: 1px solid #333; padding: 10px;">
+                    <div>> Ready to train...</div>
+                </div>
+
+                <div id="predictionLinkArea" class="mt-4 text-center d-none">
+                    <hr class="border-secondary">
+                    <p class="text-white-50">학습이 완료되었습니다! 이제 예측 엔진을 시뮬레이션할 수 있습니다.</p>
+                    <a href="/predict" class="btn btn-warning btn-lg px-5">🔮 장애 예측 타임라인 바로가기</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('trainBtn').addEventListener('click', function () {
+        const btn = this;
+        const statusArea = document.getElementById('statusArea');
+        const progressBar = document.getElementById('progressBar');
+        const consoleOutput = document.getElementById('consoleOutput');
+
+        // Reset UI
+        btn.disabled = true;
+        statusArea.classList.remove('d-none');
+        progressBar.style.width = "0%";
+        progressBar.innerText = "0%";
+        consoleOutput.innerHTML = "<div>> Requesting start...</div>";
+
+        fetch('/api/train', { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    startPolling();
+                } else {
+                    consoleOutput.innerHTML += `<div class="text-danger">> Error: ${data.message}</div>`;
+                    btn.disabled = false;
+                }
+            })
+            .catch(err => {
+                consoleOutput.innerHTML += `<div class="text-danger">> Connection Error: ${err}</div>`;
+                btn.disabled = false;
+            });
+
+        function startPolling() {
+            const interval = setInterval(() => {
+                fetch('/api/train/status')
+                    .then(res => res.json())
+                    .then(statusData => {
+                        // Update Progress
+                        progressBar.style.width = statusData.progress + "%";
+                        progressBar.innerText = statusData.progress + "%";
+
+                        // Update Logs
+                        let logHtml = "";
+                        statusData.logs.forEach(line => {
+                            logHtml += `<div>> ${line}</div>`;
+                        });
+                        consoleOutput.innerHTML = logHtml;
+                        consoleOutput.scrollTop = consoleOutput.scrollHeight; // Auto scroll
+
+                        if (statusData.status === 'completed') {
+                            clearInterval(interval);
+                            btn.disabled = false;
+                            btn.innerText = "Training Completed (Click to Retrain)";
+                            btn.classList.remove('btn-primary');
+                            btn.classList.add('btn-success');
+
+                            // Show Prediction Link
+                            document.getElementById('predictionLinkArea').classList.remove('d-none');
+                        } else if (statusData.status === 'error') {
+                            clearInterval(interval);
+                            btn.disabled = false;
+                        }
+                    });
+            }, 1000);
+        }
+    });
+</script>
+{% endblock %}
