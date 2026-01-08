@@ -41,7 +41,7 @@ def api_analyze():
     
     # Check if stats.json exists
     import os, json
-    stats_path = "c:/syslog/stats.json"
+    stats_path = "stats.json" # Relative path for deployment
     
     chart_labels = []
     monthly_totals = []
@@ -143,7 +143,7 @@ def api_forecast():
     import os
     from datetime import datetime, timedelta
     
-    stats_path = "c:/syslog/stats.json"
+    stats_path = "stats.json" # Relative path for deployment
     if not os.path.exists(stats_path):
         return jsonify({'status': 'error', 'message': 'Stats not found'})
         
